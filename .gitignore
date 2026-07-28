@@ -1,0 +1,5 @@
+backend/notes.db
+backend/server
+frontend/node_modules
+frontend/dist
+backend/.env
