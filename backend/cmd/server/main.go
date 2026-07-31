@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/Dimensionexpert/notes-app/internal/db"
+	"github.com/Dimensionexpert/notes-app/internal/handlers"
 )
 
 func main() {
@@ -21,4 +23,8 @@ func main() {
 	}
 
 	fmt.Println("tables created.")
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/signup", handlers.SignupHandler(database))
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }
