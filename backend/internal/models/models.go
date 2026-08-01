@@ -42,6 +42,19 @@ func GetUserByUsername(db *sql.DB, username string) (*User, error) {
 	return &u, nil
 }
 
+func GetSessionByTokenHash(db *sql.DB, tokenHash string) (int, error) {
+	var userID int
+	row := db.QueryRow(
+		"SELECT user_id FROM sessions WHERE token_hash = ? AND expires_at > CURRENT_TIMESTAMP",
+		tokenHash,
+	)
+	err := row.Scan(&userID)
+	if err != nil {
+		return 0, err
+	}
+	return userID, nil
+}
+
 func CreateSession(db *sql.DB, userID int, tokenHash string, expiresAt time.Time) error {
 	_, err := db.Exec(
 		"INSERT INTO sessions (user_id, token_hash, expires_at) VALUES (?, ?, ?)",

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Dimensionexpert/notes-app/internal/db"
 	"github.com/Dimensionexpert/notes-app/internal/handlers"
+	"github.com/Dimensionexpert/notes-app/internal/middleware"
 )
 
 func main() {
@@ -27,5 +28,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/signup", handlers.SignupHandler(database))
 	mux.HandleFunc("/login", handlers.LoginHandler(database))
+	mux.Handle("/whoami", middleware.RequireAuth(database, http.HandlerFunc(handlers.WhoAmIHandler)))
+
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
