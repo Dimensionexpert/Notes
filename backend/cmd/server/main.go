@@ -26,5 +26,6 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/signup", handlers.SignupHandler(database))
+	mux.HandleFunc("/login", handlers.LoginHandler(database))
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }

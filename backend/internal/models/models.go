@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"errors"
+	"time"
 
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
@@ -39,4 +40,12 @@ func GetUserByUsername(db *sql.DB, username string) (*User, error) {
 		return nil, err
 	}
 	return &u, nil
+}
+
+func CreateSession(db *sql.DB, userID int, tokenHash string, expiresAt time.Time) error {
+	_, err := db.Exec(
+		"INSERT INTO sessions (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
+		userID, tokenHash, expiresAt.UTC().Format("2006-01-02 15:04:05"),
+	)
+	return err
 }
