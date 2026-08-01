@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/Dimensionexpert/notes-app/internal/auth"
@@ -20,6 +21,10 @@ type signupRequest struct {
 type loginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+}
+type createNoteRequest struct {
+	Title   string `json:"title"`
+	Content string `json:"content"`
 }
 
 func SignupHandler(db *sql.DB) http.HandlerFunc {
@@ -45,6 +50,30 @@ func SignupHandler(db *sql.DB) http.HandlerFunc {
 		}
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte("User created successfully"))
+	}
+}
+
+func CreateNoteHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Decoding request
+		var req createNoteRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		// Geting userID from middleware
+		userID, ok := middleware.GetUserID(r)
+		if !ok {
+			http.Error(w, "No user id in context", http.StatusInternalServerError)
+			return
+		}
+		if err := models.CreateNote(db, userID, req.Title, req.Content); err != nil {
+			http.Error(w, "Can't Create note", http.StatusInternalServerError) // pretty sure it's wrong handling
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte("Note created successfully"))
 	}
 }
 
@@ -99,4 +128,90 @@ func WhoAmIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Fprintf(w, "You are user #%d", userID)
+}
+
+func GetNotesHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := middleware.GetUserID(r)
+		if !ok {
+			http.Error(w, "no user id in context", http.StatusInternalServerError)
+			return
+		}
+
+		notes, err := models.GetNotesForUser(db, userID)
+		if err != nil {
+			http.Error(w, "could not fetch notes", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(notes)
+	}
+}
+
+type updateNoteRequest struct {
+	Title   string `json:"title"`
+	Content string `json:"content"`
+}
+
+func UpdateNoteHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := middleware.GetUserID(r)
+		if !ok {
+			http.Error(w, "no user id in context", http.StatusInternalServerError)
+			return
+		}
+
+		noteID, err := strconv.Atoi(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, "invalid note id", http.StatusBadRequest)
+			return
+		}
+
+		var req updateNoteRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if err := models.UpdateNote(db, noteID, userID, req.Title, req.Content); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, "note not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "could not update note", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("note updated successfully"))
+	}
+}
+
+func DeleteNoteHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := middleware.GetUserID(r)
+		if !ok {
+			http.Error(w, "no user id in context", http.StatusInternalServerError)
+			return
+		}
+
+		noteID, err := strconv.Atoi(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, "invalid note id", http.StatusBadRequest)
+			return
+		}
+
+		if err := models.DeleteNote(db, noteID, userID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, "note not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "could not delete note", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("note deleted successfully"))
+	}
 }

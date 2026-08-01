@@ -17,6 +17,15 @@ type User struct {
 	PasswordHash string
 }
 
+type Note struct {
+	ID        int
+	UserID    int
+	Title     string
+	Content   string
+	CreatedAt string
+	UpdatedAt string
+}
+
 func CreateUser(db *sql.DB, username, passwordHash string) error {
 	_, err := db.Exec("INSERT INTO users (username, password_hash) VALUES (?, ?)", username, passwordHash)
 	if err != nil {
@@ -61,4 +70,62 @@ func CreateSession(db *sql.DB, userID int, tokenHash string, expiresAt time.Time
 		userID, tokenHash, expiresAt.UTC().Format("2006-01-02 15:04:05"),
 	)
 	return err
+}
+
+func CreateNote(db *sql.DB, userID int, title, content string) error {
+	_, err := db.Exec(
+		"INSERT INTO notes (user_id, title, content) VALUES (?, ?, ?)",
+		userID, title, content,
+	)
+	return err
+}
+
+func GetNotesForUser(db *sql.DB, userID int) ([]Note, error) {
+	rows, err := db.Query("SELECT id, user_id, title, content, created_at, updated_at FROM notes WHERE user_id = ?", userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var notes []Note
+	for rows.Next() {
+		var n Note
+		if err := rows.Scan(&n.ID, &n.UserID, &n.Title, &n.Content, &n.CreatedAt, &n.UpdatedAt); err != nil {
+			return nil, err
+		}
+		notes = append(notes, n)
+	}
+	return notes, nil
+}
+func UpdateNote(db *sql.DB, noteID, userID int, title, content string) error {
+	result, err := db.Exec(
+		"UPDATE notes SET title = ?, content = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+		title, content, time.Now().UTC().Format("2006-01-02 15:04:05"), noteID, userID,
+	)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows // note didn't exist, or didn't belong to this user
+	}
+	return nil
+}
+
+func DeleteNote(db *sql.DB, noteID, userID int) error {
+	result, err := db.Exec("DELETE FROM notes WHERE id = ? AND user_id = ?", noteID, userID)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
